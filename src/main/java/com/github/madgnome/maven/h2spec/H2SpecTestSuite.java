@@ -1,4 +1,4 @@
-package com.madgnome.maven.h2spec;
+package com.github.madgnome.maven.h2spec;
 
 import org.apache.commons.exec.CommandLine;
 import org.apache.commons.exec.DefaultExecutor;

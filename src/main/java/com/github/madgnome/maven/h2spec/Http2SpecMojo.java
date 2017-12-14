@@ -1,4 +1,4 @@
-package com.madgnome.maven.h2spec;
+package com.github.madgnome.maven.h2spec;
 
 /*
  * Copyright 2001-2005 The Apache Software Foundation.
@@ -37,11 +37,9 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
 

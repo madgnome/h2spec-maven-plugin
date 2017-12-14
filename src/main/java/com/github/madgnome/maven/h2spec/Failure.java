@@ -1,4 +1,4 @@
-package com.madgnome.maven.h2spec;
+package com.github.madgnome.maven.h2spec;
 
 public class Failure {
     private final String name;

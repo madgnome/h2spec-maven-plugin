@@ -1,0 +1,7 @@
+-------------------------------------------------------------------------------
+This product bundles h2spec
+
+  * LICENSE:
+    * license/LICENSE.h2spec.txt (MIT)
+  * HOMEPAGE:
+    * https://github.com/summerwind/h2spec

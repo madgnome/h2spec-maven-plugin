@@ -11,6 +11,7 @@ import org.apache.maven.reporting.MavenReportException;
 import org.codehaus.plexus.archiver.UnArchiver;
 import org.codehaus.plexus.archiver.tar.TarGZipUnArchiver;
 import org.codehaus.plexus.archiver.zip.ZipUnArchiver;
+import org.codehaus.plexus.logging.AbstractLogEnabled;
 import org.codehaus.plexus.logging.Logger;
 import org.codehaus.plexus.logging.console.ConsoleLogger;
 import org.codehaus.plexus.util.FileUtils;
@@ -108,10 +109,10 @@ public class H2SpecTestSuite {
         UnArchiver unArchiver;
         if (h2SpecArchive.getName().endsWith(".tar.gz")) {
             unArchiver = new TarGZipUnArchiver();
-            ((TarGZipUnArchiver) unArchiver).enableLogging(new ConsoleLogger(Logger.LEVEL_DEBUG, "console"));
         } else {
             unArchiver = new ZipUnArchiver();
         }
+        ((AbstractLogEnabled) unArchiver).enableLogging(new ConsoleLogger(Logger.LEVEL_DEBUG, "console"));
 
         unArchiver.setSourceFile(h2SpecArchive);
         unArchiver.setDestDirectory(targetDirectory);

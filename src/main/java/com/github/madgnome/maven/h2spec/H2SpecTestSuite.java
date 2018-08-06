@@ -27,7 +27,7 @@ import java.util.Set;
 
 public class H2SpecTestSuite {
 
-    public static final String H2SPEC_VERSION = "2.1.0";
+    public static final String H2SPEC_VERSION = "2.1.1";
 
     public static void main(String[] args) throws IOException {
         runH2Spec(new File(args[0]), Integer.parseInt(args[1]), 2, 4000, Collections.<String>emptySet());

@@ -4,6 +4,8 @@ import org.apache.commons.exec.CommandLine;
 import org.apache.commons.exec.DefaultExecutor;
 import org.apache.commons.exec.Executor;
 import org.apache.commons.exec.PumpStreamHandler;
+import org.apache.maven.plugin.logging.Log;
+import org.apache.maven.plugin.logging.SystemStreamLog;
 import org.apache.maven.plugins.surefire.report.ReportTestCase;
 import org.apache.maven.plugins.surefire.report.ReportTestSuite;
 import org.apache.maven.plugins.surefire.report.SurefireReportParser;
@@ -27,20 +29,25 @@ import java.util.Set;
 
 public class H2SpecTestSuite {
 
-    public static final String H2SPEC_VERSION = "2.1.1";
+    public static final String H2SPEC_VERSION = "2.2.0";
 
     public static void main(String[] args) throws IOException {
-        runH2Spec(new File(args[0]), Integer.parseInt(args[1]), 2, 4000, Collections.<String>emptySet());
+        runH2Spec(new SystemStreamLog(), new File(args[0]), Integer.parseInt(args[1]), 2, 4000, Collections.<String>emptySet());
     }
 
     public static String getSpecIdentifier(String specId, String name) {
         return specId + " - " + name;
     }
 
-    public static List<Failure> runH2Spec(File targetDirectory, int port, final int timeout, final int maxHeaderLength, final Set<String> excludeSpecs) throws IOException {
+    public static List<Failure> runH2Spec(Log logger, File targetDirectory, int port, final int timeout, final int maxHeaderLength, final Set<String> excludeSpecs) throws IOException {
         File reportsDirectory = new File(targetDirectory, "reports");
         if (!reportsDirectory.exists()) {
-            reportsDirectory.mkdir();
+            logger.debug("Reports directory " + reportsDirectory.getAbsolutePath() + " does not exist, try creating it...");
+            if (reportsDirectory.mkdirs()) {
+                logger.debug("Reports directory " + reportsDirectory.getAbsolutePath() + " created.");
+            } else {
+                logger.debug("Failed to create report directory");
+            }
         }
 
         File junitFile = new File(reportsDirectory, "TEST-h2spec.xml");
@@ -52,21 +59,23 @@ public class H2SpecTestSuite {
         exec.setExitValues(new int[]{0, 1});
 
         psh.start();
-        if (exec.execute(buildCommandLine(h2spec, port, junitFile, timeout, maxHeaderLength)) != 0) {
-            return parseReports(reportsDirectory, excludeSpecs);
+        if (exec.execute(buildCommandLine(logger, h2spec, port, junitFile, timeout, maxHeaderLength)) != 0) {
+            return parseReports(logger, reportsDirectory, excludeSpecs);
         }
         psh.stop();
 
         return Collections.emptyList();
     }
 
-    private static List<Failure> parseReports(final File reportsDirectory, final Set<String> excludeSpecs) {
+    private static List<Failure> parseReports(final Log logger, final File reportsDirectory, final Set<String> excludeSpecs) {
+        logger.debug("Parsing h2spec reports");
         SurefireReportParser parser = new SurefireReportParser(Collections.singletonList(reportsDirectory), Locale.getDefault());
 
         String currentPackageName = "";
         List<Failure> failures = new ArrayList<Failure>();
         try {
             List<ReportTestSuite> parsedReports = parser.parseXMLReportFiles();
+            logger.debug(parsedReports.size() + " h2spec reports parsed.");
             for (ReportTestSuite parsedReport : parsedReports) {
                 String packageName = parsedReport.getPackageName();
                 if (packageName.length() > 0) {
@@ -76,13 +85,16 @@ public class H2SpecTestSuite {
                 if (parsedReport.getNumberOfErrors() > 0) {
                     for (ReportTestCase reportTestCase : parsedReport.getTestCases()) {
                         String name = parsedReport.getFullClassName();
-                        boolean ignored = excludeSpecs.contains(getSpecIdentifier(currentPackageName, name));
                         String failureDetail = reportTestCase.getFailureDetail();
-                        String[] failureTokens = failureDetail.split("\n");
+                        if (failureDetail != null) {
+                            String[] failureTokens = failureDetail.split("\n");
+                            final String specIdentifier = getSpecIdentifier(currentPackageName, name);
+                            boolean ignored = excludeSpecs.contains(specIdentifier);
 
-                        String expected = failureTokens.length > 0 ? failureTokens[0] : "";
-                        String actual = failureTokens.length > 1 ? failureTokens[1] : "";
-                        failures.add(new Failure(name, currentPackageName, actual, expected, ignored));
+                            String expected = failureTokens.length > 0 ? failureTokens[0] : "";
+                            String actual = failureTokens.length > 1 ? failureTokens[1] : "";
+                            failures.add(new Failure(name, currentPackageName, actual, expected, ignored));
+                        }
                     }
                 }
             }
@@ -94,9 +106,11 @@ public class H2SpecTestSuite {
         return failures;
     }
 
-    private static CommandLine buildCommandLine(final File h2spec, final int port, final File junitFile, final int timeout, final int maxHeaderLength) {
-        return CommandLine.parse(String.format("%s %s -p %d -j %s -o %d --max-header-length %d",
-                h2spec.getAbsolutePath(), " ", port, junitFile.getAbsolutePath(), timeout, maxHeaderLength));
+    private static CommandLine buildCommandLine(final Log logger, final File h2spec, final int port, final File junitFile, final int timeout, final int maxHeaderLength) {
+        final String command = String.format("%s %s -p %d -j %s -o %d --max-header-length %d",
+                h2spec.getAbsolutePath(), " ", port, junitFile.getAbsolutePath(), timeout, maxHeaderLength);
+        logger.debug("h2spec command: " + command);
+        return CommandLine.parse(command);
     }
 
     private static File getH2SpecFile(final File targetDirectory) throws IOException {

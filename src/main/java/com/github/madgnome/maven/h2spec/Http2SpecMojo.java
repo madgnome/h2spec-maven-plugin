@@ -196,7 +196,7 @@ public class Http2SpecMojo extends AbstractMojo {
                 }
 
                 File outputDirectory = new File(project.getBuild().getTestOutputDirectory());
-                List<Failure> allFailures = H2SpecTestSuite.runH2Spec(outputDirectory, port, timeout, maxHeaderLength,
+                List<Failure> allFailures = H2SpecTestSuite.runH2Spec(getLog(), outputDirectory, port, timeout, maxHeaderLength,
                         new HashSet<String>(excludeSpecs));
                 List<Failure> nonIgnoredFailures = new ArrayList<Failure>();
                 List<Failure> ignoredFailures = new ArrayList<Failure>();
@@ -212,7 +212,7 @@ public class Http2SpecMojo extends AbstractMojo {
 
                 if (nonIgnoredFailures.size() > 0) {
                     StringBuilder sb = new StringBuilder("\nFailed test cases:\n");
-                    for (Failure failure : allFailures) {
+                    for (Failure failure : nonIgnoredFailures) {
                         sb.append("\t");
                         sb.append(failure.toString());
                         sb.append("\n\n");
@@ -245,7 +245,7 @@ public class Http2SpecMojo extends AbstractMojo {
                 try {
                     socket.close();
                 } catch (IOException e) {
-                    throw new RuntimeException("Can't close server socket.");
+                    System.err.println("Can't close server socket.");
                 }
             }
         }

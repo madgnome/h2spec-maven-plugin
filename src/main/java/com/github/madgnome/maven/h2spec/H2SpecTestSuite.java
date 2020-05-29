@@ -37,7 +37,8 @@ public class H2SpecTestSuite
         runH2Spec(new SystemStreamLog(), new File(args[0]), Integer.parseInt(args[1]), 2, 4000, Collections.emptySet());
     }
 
-    public static String getSpecIdentifier(String specId, String name) {
+    public static String getSpecIdentifier(String specId, String name)
+    {
         return specId + " - " + name;
     }
 
@@ -127,7 +128,7 @@ public class H2SpecTestSuite
     {
         final String command = String.format("%s %s -p %d -j %s -o %d --max-header-length %d",
                 h2spec.getAbsolutePath(), " ", port, junitFile.getAbsolutePath(), timeout, maxHeaderLength);
-        logger.debug("h2spec command: " + command);
+        logger.info("h2spec command: " + command);
         return CommandLine.parse(command);
     }
 
@@ -143,7 +144,8 @@ public class H2SpecTestSuite
         if (h2SpecArchive.getName().endsWith(".tar.gz"))
         {
             unArchiver = new TarGZipUnArchiver();
-        } else
+        }
+        else
         {
             unArchiver = new ZipUnArchiver();
         }

@@ -123,14 +123,16 @@ public class H2SpecTestSuite
         return failures;
     }
 
-    private static CommandLine buildCommandLine(final Log logger, final File h2spec, final int port, final File junitFile, final int timeout, final int maxHeaderLength) {
+    private static CommandLine buildCommandLine(final Log logger, final File h2spec, final int port, final File junitFile, final int timeout, final int maxHeaderLength)
+    {
         final String command = String.format("%s %s -p %d -j %s -o %d --max-header-length %d",
                 h2spec.getAbsolutePath(), " ", port, junitFile.getAbsolutePath(), timeout, maxHeaderLength);
         logger.debug("h2spec command: " + command);
         return CommandLine.parse(command);
     }
 
-    private static File getH2SpecFile(final File targetDirectory) throws IOException {
+    private static File getH2SpecFile(final File targetDirectory) throws IOException
+    {
         URL h2SpecArchiveInJar = H2SpecTestSuite.class.getResource(getH2SpecArchivePathForOs());
 
         File h2SpecArchive = new File(targetDirectory, new File(h2SpecArchiveInJar.getPath()).getName());
@@ -138,9 +140,11 @@ public class H2SpecTestSuite
 
         File h2Spec = new File(targetDirectory, "h2spec");
         UnArchiver unArchiver;
-        if (h2SpecArchive.getName().endsWith(".tar.gz")) {
+        if (h2SpecArchive.getName().endsWith(".tar.gz"))
+        {
             unArchiver = new TarGZipUnArchiver();
-        } else {
+        } else
+        {
             unArchiver = new ZipUnArchiver();
         }
         ((AbstractLogEnabled) unArchiver).enableLogging(new ConsoleLogger(Logger.LEVEL_DEBUG, "console"));
@@ -149,7 +153,8 @@ public class H2SpecTestSuite
         unArchiver.setDestDirectory(targetDirectory);
         unArchiver.extract();
 
-        if (!h2Spec.setExecutable(true)) {
+        if (!h2Spec.setExecutable(true))
+        {
             throw new RuntimeException("Can't set h2spec as executable");
         }
         return h2Spec;

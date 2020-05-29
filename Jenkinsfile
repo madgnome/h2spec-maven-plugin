@@ -28,7 +28,6 @@ pipeline {
                 mavenBuild( "jdk8", "deploy" )
               }
             }
-
           }
         }
       }

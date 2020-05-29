@@ -45,7 +45,8 @@ import java.util.concurrent.atomic.AtomicReference;
 
 @Mojo(name = "h2spec", defaultPhase = LifecyclePhase.INTEGRATION_TEST,
         requiresDependencyResolution = ResolutionScope.TEST)
-public class Http2SpecMojo extends AbstractMojo {
+public class Http2SpecMojo extends AbstractMojo
+{
 
     /**
      * The port on which the Server will listen.
@@ -81,7 +82,7 @@ public class Http2SpecMojo extends AbstractMojo {
      * The number of milliseconds to max wait for the server to startup. Default is 10000 ms
      */
     @Parameter(property = "waitTime")
-    private long waitTime;
+    private long waitTime = 10000;
 
     /**
      * Allow to skip execution of plugin
@@ -93,158 +94,210 @@ public class Http2SpecMojo extends AbstractMojo {
     private MavenProject project;
 
     @SuppressWarnings("unchecked")
-    private ClassLoader getClassLoader() throws MojoExecutionException {
-        try {
+    private ClassLoader getClassLoader() throws MojoExecutionException
+    {
+        try
+        {
             List<String> classpathElements = project.getTestClasspathElements();
-            classpathElements.add(project.getBuild().getOutputDirectory() );
-            classpathElements.add(project.getBuild().getTestOutputDirectory() );
-            URL urls[] = new URL[classpathElements.size()];
+            classpathElements.add(project.getBuild().getOutputDirectory());
+            classpathElements.add(project.getBuild().getTestOutputDirectory());
+            URL[] urls = new URL[classpathElements.size()];
 
-            for ( int i = 0; i < classpathElements.size(); i++) {
+            for (int i = 0; i < classpathElements.size(); i++)
+            {
                 urls[i] = new File(classpathElements.get(i)).toURI().toURL();
             }
             return new URLClassLoader(urls, getClass().getClassLoader());
-        } catch (Exception e) {
+        }
+        catch (Exception e)
+        {
             throw new MojoExecutionException("Couldn't create a classloader", e);
         }
     }
 
-    public void execute()
-            throws MojoExecutionException, MojoFailureException {
-        if (skip) {
+    public void execute() throws MojoExecutionException, MojoFailureException
+    {
+        if (skip)
+        {
             getLog().info("Skip execution of h2spec-maven-plugin");
             return;
         }
 
-        final AtomicReference<Exception> error = new AtomicReference<Exception>();
+        final AtomicReference<Exception> error = new AtomicReference<>();
         Thread runner = null;
-        try {
+        try
+        {
             String host;
-            try {
+            try
+            {
                 host = InetAddress.getLocalHost().getHostAddress();
-            } catch (UnknownHostException e) {
+            }
+            catch (UnknownHostException e)
+            {
                 getLog().debug("Unable to detect localhost address, using 127.0.0.1 as fallback");
                 host = "127.0.0.1";
             }
-            if (port == -1) {
+            if (port == -1)
+            {
                 // Get some random free port
                 port = findRandomOpenPortOnAllLocalInterfaces();
             }
-            runner = new Thread(new Runnable() {
-                public void run() {
-                    try {
-                        Thread.currentThread().setContextClassLoader(getClassLoader());
-                        Class<?> clazz = Thread.currentThread().getContextClassLoader().loadClass(mainClass);
-                        Method main = clazz.getMethod("main", String[].class);
-                        main.invoke(null, (Object) new String[] { String.valueOf(port) });
-                    } catch (Exception e) {
-                        error.set(e);
-                    }
+            runner = new Thread(() ->
+            {
+                try
+                {
+                    Thread.currentThread().setContextClassLoader(getClassLoader());
+                    Class<?> clazz = Thread.currentThread().getContextClassLoader().loadClass(mainClass);
+                    Method main = clazz.getMethod("main", String[].class);
+                    main.invoke(null, (Object) new String[] {String.valueOf(port) });
+                }
+                catch (Exception e)
+                {
+                    error.set(e);
                 }
             });
             runner.setDaemon(true);
             runner.start();
-            try {
+            try
+            {
                 // wait for 50 milliseconds to give the server some time to startup
                 Thread.sleep(500);
-            } catch (InterruptedException ignore) {
+            }
+            catch (InterruptedException ignore)
+            {
                 Thread.currentThread().interrupt();
             }
-            if (waitTime <= 0) {
+            if (waitTime <= 0)
+            {
                 // use 10 seconds as default
                 waitTime = 10000;
             }
 
             // Wait until the server accepts connections
             long sleepTime = waitTime / 10;
-            for (int i = 0; i < 10; i++) {
+            for (int i = 0; i < 10; i++)
+            {
                 Throwable cause = error.get();
-                if (cause != null) {
+                if (cause != null)
+                {
                     throw new MojoExecutionException("Unable to start server", cause);
                 }
                 Socket socket = new Socket();
-                try {
-                    socket.connect( new InetSocketAddress(host, port));
+                try
+                {
+                    socket.connect(new InetSocketAddress(host, port));
                     break;
-                } catch (IOException e) {
-                    try {
+                }
+                catch (IOException e)
+                {
+                    try
+                    {
                         Thread.sleep(sleepTime);
-                    } catch (InterruptedException ignore) {
+                    }
+                    catch (InterruptedException ignore)
+                    {
                         // restore interrupt state
                         Thread.currentThread().interrupt();
                     }
-                } finally {
-                    try {
+                }
+                finally
+                {
+                    try
+                    {
                         socket.close();
-                    } catch (IOException e) {
+                    }
+                    catch (IOException e)
+                    {
                         // ignore
                     }
                 }
-                if (i == 9) {
+                if (i == 9)
+                {
                     throw new MojoExecutionException("Unable to connect to server in " + waitTime, error.get());
                 }
             }
 
-            if (excludeSpecs == null) {
+            if (excludeSpecs == null)
+            {
                 excludeSpecs = Collections.emptyList();
             }
 
-            try {
+            try
+            {
                 getLog().info("!!! Exclude specs");
-                for (String excludeSpec : excludeSpecs) {
+                for (String excludeSpec : excludeSpecs)
+                {
                     getLog().info(excludeSpec);
                 }
 
                 File outputDirectory = new File(project.getBuild().getTestOutputDirectory());
                 List<Failure> allFailures = H2SpecTestSuite.runH2Spec(getLog(), outputDirectory, port, timeout, maxHeaderLength,
-                        new HashSet<String>(excludeSpecs));
-                List<Failure> nonIgnoredFailures = new ArrayList<Failure>();
-                List<Failure> ignoredFailures = new ArrayList<Failure>();
+                        new HashSet<>(excludeSpecs));
+                List<Failure> nonIgnoredFailures = new ArrayList<>();
+                List<Failure> ignoredFailures = new ArrayList<>();
 
 
-                for (Failure failure : allFailures) {
-                    if (failure.isIgnored()) {
+                allFailures.forEach(failure ->
+                {
+                    if (failure.isIgnored())
+                    {
                         ignoredFailures.add(failure);
-                    } else {
+                    }
+                    else
+                    {
                         nonIgnoredFailures.add(failure);
                     }
-                }
+                });
 
-                if (nonIgnoredFailures.size() > 0) {
+                if (nonIgnoredFailures.size() > 0)
+                {
                     StringBuilder sb = new StringBuilder("\nFailed test cases:\n");
-                    for (Failure failure : nonIgnoredFailures) {
-                        sb.append("\t");
-                        sb.append(failure.toString());
-                        sb.append("\n\n");
-                    }
+                    nonIgnoredFailures.forEach(failure -> sb.append("\t").append(failure.toString()).append("\n\n"));
+
                     throw new MojoFailureException(sb.toString());
-                } else {
+                }
+                else
+                {
                     getLog().info("All test cases passed. " + ignoredFailures.size() + " test cases ignored.");
                 }
-            } catch (IOException e) {
+            }
+            catch (IOException e)
+            {
                 e.printStackTrace();
             }
 
-
-        } finally {
-            if (runner != null) {
+        }
+        finally
+        {
+            if (runner != null)
+            {
                 runner.interrupt();
             }
         }
     }
 
-    private Integer findRandomOpenPortOnAllLocalInterfaces() {
+    private Integer findRandomOpenPortOnAllLocalInterfaces()
+    {
         ServerSocket socket = null;
-        try {
+        try
+        {
             socket = new ServerSocket(0);
             return socket.getLocalPort();
-        } catch (IOException e) {
+        }
+        catch (IOException e)
+        {
             throw new RuntimeException("Can't find an open socket", e);
-        } finally {
-            if (socket != null) {
-                try {
+        }
+        finally
+        {
+            if (socket != null)
+            {
+                try
+                {
                     socket.close();
-                } catch (IOException e) {
+                }
+                catch (IOException e)
+                {
                     System.err.println("Can't close server socket.");
                 }
             }

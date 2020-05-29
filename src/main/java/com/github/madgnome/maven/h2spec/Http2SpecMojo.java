@@ -234,7 +234,7 @@ public class Http2SpecMojo extends AbstractMojo
                     getLog().info(excludeSpec);
                 }
 
-                File outputDirectory = new File(project.getBuild().getTestOutputDirectory());
+                File outputDirectory = new File(project.getBuild().getDirectory());
                 List<Failure> allFailures = H2SpecTestSuite.runH2Spec(getLog(), outputDirectory, port, timeout, maxHeaderLength,
                         new HashSet<>(excludeSpecs));
                 List<Failure> nonIgnoredFailures = new ArrayList<>();

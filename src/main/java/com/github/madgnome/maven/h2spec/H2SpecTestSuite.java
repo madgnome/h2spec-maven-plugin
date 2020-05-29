@@ -21,6 +21,7 @@ import org.codehaus.plexus.util.FileUtils;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -42,10 +43,10 @@ public class H2SpecTestSuite
         return specId + " - " + name;
     }
 
-    public static List<Failure> runH2Spec(Log logger, File targetDirectory, int port, final int timeout, final int maxHeaderLength, final Set<String> excludeSpecs) throws IOException
+    public static List<Failure> runH2Spec(Log logger, File targetDirectory, int port, int timeout, int maxHeaderLength, Set<String> excludeSpecs) throws IOException
     {
-        File reportsDirectory = new File(targetDirectory, "reports");
-        if (!reportsDirectory.exists())
+        File reportsDirectory = new File(targetDirectory, "surefire-reports");
+        if (!Files.exists(reportsDirectory.toPath()))
         {
             logger.debug("Reports directory " + reportsDirectory.getAbsolutePath() + " does not exist, try creating it...");
             if (reportsDirectory.mkdirs())

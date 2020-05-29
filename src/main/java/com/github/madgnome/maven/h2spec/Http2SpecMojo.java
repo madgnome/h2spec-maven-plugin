@@ -85,10 +85,14 @@ public class Http2SpecMojo extends AbstractMojo
     private long waitTime = 10000;
 
     /**
-     * Allow to skip execution of plugin
+     * Set this to "true" to ignore a failure during testing. Its use is NOT RECOMMENDED, but quite convenient on
+     * occasion.
      */
-    @Parameter(property = "skip", defaultValue = "false")
-    private boolean skip;
+    @Parameter(property = "maven.test.failure.ignore", defaultValue = "false" )
+    private boolean testFailureIgnore;
+
+    @Parameter(property = "maven.test.skip", defaultValue = "false" )
+    protected boolean skip;
 
     @Component
     private MavenProject project;
@@ -253,8 +257,10 @@ public class Http2SpecMojo extends AbstractMojo
                 {
                     StringBuilder sb = new StringBuilder("\nFailed test cases:\n");
                     nonIgnoredFailures.forEach(failure -> sb.append("\t").append(failure.toString()).append("\n\n"));
-
-                    throw new MojoFailureException(sb.toString());
+                    if (!testFailureIgnore)
+                    {
+                        throw new MojoFailureException(sb.toString());
+                    }
                 }
                 else
                 {
@@ -263,7 +269,7 @@ public class Http2SpecMojo extends AbstractMojo
             }
             catch (IOException e)
             {
-                e.printStackTrace();
+                throw new MojoExecutionException(e.getMessage(), e);
             }
 
         }

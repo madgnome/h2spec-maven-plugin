@@ -44,7 +44,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 
 @Mojo(name = "h2spec", defaultPhase = LifecyclePhase.INTEGRATION_TEST,
-        requiresDependencyResolution = ResolutionScope.TEST)
+        requiresDependencyResolution = ResolutionScope.TEST, threadSafe = true)
 public class Http2SpecMojo extends AbstractMojo
 {
 
@@ -93,6 +93,12 @@ public class Http2SpecMojo extends AbstractMojo
 
     @Parameter(property = "maven.test.skip", defaultValue = "false" )
     protected boolean skip;
+
+    @Parameter(property = "h2spec.junitFileName", defaultValue = "TEST-h2spec.xml" )
+    private String junitFileName;
+
+    @Parameter(property = "h2spec.verbose", defaultValue = "false" )
+    private boolean verbose;
 
     @Component
     private MavenProject project;
@@ -235,8 +241,15 @@ public class Http2SpecMojo extends AbstractMojo
                 }
 
                 File outputDirectory = new File(project.getBuild().getDirectory());
-                List<Failure> allFailures = H2SpecTestSuite.runH2Spec(getLog(), outputDirectory, port, timeout, maxHeaderLength,
-                        new HashSet<>(excludeSpecs));
+                H2SpecTestSuite.Config config = new H2SpecTestSuite.Config();
+                config.log = getLog();
+                config.outputDirectory = outputDirectory;
+                config.port = port;
+                config.timeout = timeout;
+                config.excludeSpecs = new HashSet<>(excludeSpecs);
+                config.junitFileName = this.junitFileName;
+                config.verbose = verbose;
+                List<Failure> allFailures = H2SpecTestSuite.runH2Spec(config);
                 List<Failure> nonIgnoredFailures = new ArrayList<>();
                 List<Failure> ignoredFailures = new ArrayList<>();
 

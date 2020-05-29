@@ -35,7 +35,13 @@ public class H2SpecTestSuite
 
     public static void main(String[] args) throws IOException
     {
-        runH2Spec(new SystemStreamLog(), new File(args[0]), Integer.parseInt(args[1]), 2, 4000, Collections.emptySet());
+        Config config = new Config();
+        config.log = new SystemStreamLog();
+        config.outputDirectory = new File(args[0]);
+        config.port = Integer.parseInt(args[1]);
+        config.timeout = 2;
+        config.excludeSpecs = Collections.emptySet();
+        runH2Spec(config);
     }
 
     public static String getSpecIdentifier(String specId, String name)
@@ -43,24 +49,24 @@ public class H2SpecTestSuite
         return specId + " - " + name;
     }
 
-    public static List<Failure> runH2Spec(Log logger, File targetDirectory, int port, int timeout, int maxHeaderLength, Set<String> excludeSpecs) throws IOException
+    public static List<Failure> runH2Spec(Config config) throws IOException
     {
-        File reportsDirectory = new File(targetDirectory, "surefire-reports");
+        File reportsDirectory = new File(config.outputDirectory, "surefire-reports");
         if (!Files.exists(reportsDirectory.toPath()))
         {
-            logger.debug("Reports directory " + reportsDirectory.getAbsolutePath() + " does not exist, try creating it...");
+            config.log.debug("Reports directory " + reportsDirectory.getAbsolutePath() + " does not exist, try creating it...");
             if (reportsDirectory.mkdirs())
             {
-                logger.debug("Reports directory " + reportsDirectory.getAbsolutePath() + " created.");
+                config.log.debug("Reports directory " + reportsDirectory.getAbsolutePath() + " created.");
             }
             else
             {
-                logger.debug("Failed to create report directory");
+                config.log.debug("Failed to create report directory");
             }
         }
 
-        File junitFile = new File(reportsDirectory, "TEST-h2spec.xml");
-        File h2spec = getH2SpecFile(targetDirectory);
+        File junitFile = new File(reportsDirectory, config.junitFileName);
+        File h2spec = getH2SpecFile(config.outputDirectory);
 
         Executor exec = new DefaultExecutor();
         PumpStreamHandler psh = new PumpStreamHandler(System.out, System.err, System.in);
@@ -68,9 +74,9 @@ public class H2SpecTestSuite
         exec.setExitValues(new int[]{0, 1});
 
         psh.start();
-        if (exec.execute(buildCommandLine(logger, h2spec, port, junitFile, timeout, maxHeaderLength)) != 0)
+        if (exec.execute(buildCommandLine(h2spec, junitFile, config)) != 0)
         {
-            return parseReports(logger, reportsDirectory, excludeSpecs);
+            return parseReports(config.log, reportsDirectory, config.excludeSpecs);
         }
         psh.stop();
 
@@ -125,11 +131,16 @@ public class H2SpecTestSuite
         return failures;
     }
 
-    private static CommandLine buildCommandLine(final Log logger, final File h2spec, final int port, final File junitFile, final int timeout, final int maxHeaderLength)
+    private static CommandLine buildCommandLine(File h2spec, File junitFile, Config config)
     {
-        final String command = String.format("%s %s -p %d -j %s -o %d --max-header-length %d",
-                h2spec.getAbsolutePath(), " ", port, junitFile.getAbsolutePath(), timeout, maxHeaderLength);
-        logger.info("h2spec command: " + command);
+        String command = String.format("%s %s -p %d -j %s -o %d --max-header-length %d",
+                h2spec.getAbsolutePath(), " ", config.port, junitFile.getAbsolutePath(),
+                                             config.timeout, config.maxHeaderLength);
+        config.log.info("h2spec command: " + command);
+        if (config.verbose)
+        {
+            command += " -v";
+        }
         return CommandLine.parse(command);
     }
 
@@ -185,6 +196,19 @@ public class H2SpecTestSuite
         }
 
         return String.format("/h2spec/%s/%s", H2SPEC_VERSION, fileName);
+    }
+
+
+    static class Config
+    {
+        Log log;
+        File outputDirectory;
+        int port;
+        int timeout;
+        int maxHeaderLength;
+        Set excludeSpecs;
+        String junitFileName = "TEST-h2spec.xml";
+        boolean verbose;
     }
 
 }

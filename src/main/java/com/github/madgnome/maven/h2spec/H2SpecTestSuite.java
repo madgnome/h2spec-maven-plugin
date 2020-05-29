@@ -29,7 +29,7 @@ import java.util.Set;
 
 public class H2SpecTestSuite {
 
-    public static final String H2SPEC_VERSION = "2.2.0";
+    public static final String H2SPEC_VERSION = "2.4.0";
 
     public static void main(String[] args) throws IOException {
         runH2Spec(new SystemStreamLog(), new File(args[0]), Integer.parseInt(args[1]), 2, 4000, Collections.<String>emptySet());

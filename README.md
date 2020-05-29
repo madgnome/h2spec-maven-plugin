@@ -15,7 +15,7 @@ maven project:
     <build>
         <plugins>
           <plugin>
-            <groupId>com.github.madgnome</groupId>
+            <groupId>org.mortbay.jetty</groupId>
             <artifactId>h2spec-maven-plugin</artifactId>
             <version>0.1-SNAPSHOT</version>
             <configuration>

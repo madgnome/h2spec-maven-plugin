@@ -42,6 +42,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.github.madgnome.maven.h2spec.H2SpecTestSuite.DEFAULT_VERSION;
+
 
 @Mojo(name = "h2spec", defaultPhase = LifecyclePhase.INTEGRATION_TEST,
         requiresDependencyResolution = ResolutionScope.TEST, threadSafe = true)
@@ -99,6 +101,9 @@ public class Http2SpecMojo extends AbstractMojo
 
     @Parameter(property = "h2spec.verbose", defaultValue = "false" )
     private boolean verbose;
+
+    @Parameter(property = "h2spec.version", defaultValue = "2.5.0" )
+    private String h2specVersion = DEFAULT_VERSION;
 
     @Component
     private MavenProject project;
@@ -249,6 +254,7 @@ public class Http2SpecMojo extends AbstractMojo
                 config.excludeSpecs = new HashSet<>(excludeSpecs);
                 config.junitFileName = this.junitFileName;
                 config.verbose = verbose;
+                config.version = h2specVersion;
                 List<Failure> allFailures = H2SpecTestSuite.runH2Spec(config);
                 List<Failure> nonIgnoredFailures = new ArrayList<>();
                 List<Failure> ignoredFailures = new ArrayList<>();

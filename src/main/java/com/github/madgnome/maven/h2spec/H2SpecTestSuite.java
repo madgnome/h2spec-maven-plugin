@@ -31,7 +31,7 @@ import java.util.Set;
 public class H2SpecTestSuite
 {
 
-    public static final String H2SPEC_VERSION = "2.4.0";
+    public static final String DEFAULT_VERSION = "2.5.0";
 
     public static void main(String[] args) throws IOException
     {
@@ -66,7 +66,7 @@ public class H2SpecTestSuite
         }
 
         File junitFile = new File(reportsDirectory, config.junitFileName);
-        File h2spec = getH2SpecFile(config.outputDirectory);
+        File h2spec = getH2SpecFile(config.outputDirectory, config.version);
 
         Executor exec = new DefaultExecutor();
         PumpStreamHandler psh = new PumpStreamHandler(System.out, System.err, System.in);
@@ -144,9 +144,9 @@ public class H2SpecTestSuite
         return CommandLine.parse(command);
     }
 
-    private static File getH2SpecFile(final File targetDirectory) throws IOException
+    private static File getH2SpecFile(final File targetDirectory, String version) throws IOException
     {
-        URL h2SpecArchiveInJar = H2SpecTestSuite.class.getResource(getH2SpecArchivePathForOs());
+        URL h2SpecArchiveInJar = H2SpecTestSuite.class.getResource(getH2SpecArchivePathForOs(version));
 
         File h2SpecArchive = new File(targetDirectory, new File(h2SpecArchiveInJar.getPath()).getName());
         FileUtils.copyURLToFile(h2SpecArchiveInJar, h2SpecArchive);
@@ -174,7 +174,7 @@ public class H2SpecTestSuite
         return h2Spec;
     }
 
-    private static String getH2SpecArchivePathForOs()
+    private static String getH2SpecArchivePathForOs(String version)
     {
         String os = System.getProperty("os.name").toLowerCase();
         String fileName;
@@ -195,7 +195,7 @@ public class H2SpecTestSuite
             throw new IllegalStateException("This OS is not supported.");
         }
 
-        return String.format("/h2spec/%s/%s", H2SPEC_VERSION, fileName);
+        return String.format("/h2spec/%s/%s", version, fileName);
     }
 
 
@@ -209,6 +209,7 @@ public class H2SpecTestSuite
         Set excludeSpecs;
         String junitFileName = "TEST-h2spec.xml";
         boolean verbose;
+        String version;
     }
 
 }

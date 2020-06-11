@@ -102,7 +102,7 @@ public class Http2SpecMojo extends AbstractMojo
     @Parameter(property = "h2spec.verbose", defaultValue = "false" )
     private boolean verbose;
 
-    @Parameter(property = "h2spec.version", defaultValue = "2.5.0" )
+    @Parameter(property = "h2spec.version", defaultValue = DEFAULT_VERSION )
     private String h2specVersion = DEFAULT_VERSION;
 
     @Component

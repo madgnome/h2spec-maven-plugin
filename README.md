@@ -7,6 +7,18 @@ Maven plugin which allows to run the [h2spec](https://github.com/summerwind/h2sp
 If you want to have the Test suite executed as part of your build you need to provide a Main class which will
 startup a HTTP/2 server.
 
+# Deploy h2spec binaries
+
+Sample how to deploy h2spec binaries
+```
+mvn org.apache.maven.plugins:maven-deploy-plugin:3.0.0-M1:deploy-file 
+            -Dfile=src/main/resources/h2spec/2.4.0/h2spec_linux_amd64.tar.gz 
+            -DgroupId=org.mortbay.jetty -DartifactId=h2spec 
+            -Dversion=2.4.0 -DrepositoryId=oss.sonatype.org 
+            -Durl=https://oss.sonatype.org/service/local/staging/deploy/maven2/ 
+            -Dclassifier=linux 
+            -Dpackaging=tar.gz
+```
 
 # Adding it to your build
 Adding the test suite and make it part of your build is as easy as adding it to the pom.xml file of your

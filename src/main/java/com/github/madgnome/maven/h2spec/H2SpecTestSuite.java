@@ -31,7 +31,7 @@ import java.util.Set;
 public class H2SpecTestSuite
 {
 
-    public static final String DEFAULT_VERSION = "2.5.0";
+    public static final String DEFAULT_VERSION = "2.6.0";
 
     public static void main(String[] args) throws IOException
     {
@@ -41,6 +41,7 @@ public class H2SpecTestSuite
         config.port = Integer.parseInt(args[1]);
         config.timeout = 2;
         config.excludeSpecs = Collections.emptySet();
+
         runH2Spec(config);
     }
 
@@ -49,8 +50,7 @@ public class H2SpecTestSuite
         return specId + " - " + name;
     }
 
-    public static List<Failure> runH2Spec(Config config) throws IOException
-    {
+    public static File buildJunitFile(Config config){
         File reportsDirectory = new File(config.outputDirectory, "surefire-reports");
         if (!Files.exists(reportsDirectory.toPath()))
         {
@@ -64,8 +64,12 @@ public class H2SpecTestSuite
                 config.log.debug("Failed to create report directory");
             }
         }
+        return new File(reportsDirectory, config.junitFileName);
+    }
 
-        File junitFile = new File(reportsDirectory, config.junitFileName);
+    public static List<Failure> runH2Spec(Config config) throws IOException
+    {
+        File junitFile = buildJunitFile(config);
         File h2spec = getH2SpecFile(config.outputDirectory, config.version);
 
         Executor exec = new DefaultExecutor();
@@ -76,14 +80,14 @@ public class H2SpecTestSuite
         psh.start();
         if (exec.execute(buildCommandLine(h2spec, junitFile, config)) != 0)
         {
-            return parseReports(config.log, reportsDirectory, config.excludeSpecs);
+            return parseReports(config.log, junitFile.getParentFile(), config.excludeSpecs);
         }
         psh.stop();
 
         return Collections.emptyList();
     }
 
-    private static List<Failure> parseReports(final Log logger, final File reportsDirectory, final Set<String> excludeSpecs)
+    public static List<Failure> parseReports(final Log logger, final File reportsDirectory, final Set<String> excludeSpecs)
     {
         logger.debug("Parsing h2spec reports");
         SurefireReportParser parser = new SurefireReportParser(Collections.singletonList(reportsDirectory), Locale.getDefault());

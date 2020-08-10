@@ -25,18 +25,26 @@ import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.project.MavenProject;
+import org.slf4j.LoggerFactory;
+import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.containers.wait.strategy.LogMessageWaitStrategy;
+import org.testcontainers.utility.DockerImageName;
 
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Method;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.MalformedURLException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.net.UnknownHostException;
+import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -105,6 +113,12 @@ public class Http2SpecMojo extends AbstractMojo
     @Parameter(property = "h2spec.version", defaultValue = DEFAULT_VERSION )
     private String h2specVersion = DEFAULT_VERSION;
 
+    @Parameter(property = "h2spec.useBinaries", defaultValue = "false" )
+    /**
+     * using h2spec binaries or docker image default is to use docker image
+     */
+    private boolean useBinaries;
+
     @Component
     private MavenProject project;
 
@@ -116,13 +130,18 @@ public class Http2SpecMojo extends AbstractMojo
             List<String> classpathElements = project.getTestClasspathElements();
             classpathElements.add(project.getBuild().getOutputDirectory());
             classpathElements.add(project.getBuild().getTestOutputDirectory());
-            URL[] urls = new URL[classpathElements.size()];
 
-            for (int i = 0; i < classpathElements.size(); i++)
+            return new URLClassLoader(classpathElements.stream().map(s ->
             {
-                urls[i] = new File(classpathElements.get(i)).toURI().toURL();
-            }
-            return new URLClassLoader(urls, getClass().getClassLoader());
+                try
+                {
+                    return new File(s).toURI().toURL();
+                }
+                catch (MalformedURLException e)
+                {
+                    throw new IllegalArgumentException(e);
+                }
+            }).toArray(URL[]::new), getClass().getClassLoader());
         }
         catch (Exception e)
         {
@@ -255,10 +274,45 @@ public class Http2SpecMojo extends AbstractMojo
                 config.junitFileName = this.junitFileName;
                 config.verbose = verbose;
                 config.version = h2specVersion;
-                List<Failure> allFailures = H2SpecTestSuite.runH2Spec(config);
+                List<Failure> allFailures;
                 List<Failure> nonIgnoredFailures = new ArrayList<>();
                 List<Failure> ignoredFailures = new ArrayList<>();
 
+                if (useBinaries)
+                {
+                    allFailures = H2SpecTestSuite.runH2Spec( config );
+                }
+                else
+                {
+                    File reportsDirectory = new File(config.outputDirectory, "surefire-reports");
+                    if (!Files.exists( reportsDirectory.toPath()))
+                    {
+                        config.log.debug("Reports directory " + reportsDirectory.getAbsolutePath() + " does not exist, try creating it...");
+                        if (reportsDirectory.mkdirs())
+                        {
+                            config.log.debug("Reports directory " + reportsDirectory.getAbsolutePath() + " created.");
+                        }
+                        else
+                        {
+                            config.log.debug("Failed to create report directory");
+                        }
+                    }
+
+                    File junitFile = new File(reportsDirectory, config.junitFileName);
+                    GenericContainer h2spec =
+                        new GenericContainer( DockerImageName.parse("summerwind/h2spec:" + h2specVersion))
+                            .withLogConsumer(new Slf4jLogConsumer(LoggerFactory.getLogger(getClass().getName())));
+                    h2spec.setWaitStrategy( new LogMessageWaitStrategy().withRegEx(".*"));
+                    h2spec.setPortBindings(Arrays.asList(Integer.toString(port)));
+                    String command = String.format("-p %d -j %s -o %d --max-header-length %d",
+                                                   config.port, junitFile.getAbsolutePath(),
+                                                   config.timeout, config.maxHeaderLength);
+                    h2spec.setCommand( command );
+                    h2spec.start();
+                    allFailures = H2SpecTestSuite.parseReports(config.log, junitFile.getParentFile(),
+                                                                config.excludeSpecs);
+
+                }
 
                 allFailures.forEach(failure ->
                 {

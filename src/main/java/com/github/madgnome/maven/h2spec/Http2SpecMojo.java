@@ -26,10 +26,13 @@ import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.project.MavenProject;
 import org.slf4j.LoggerFactory;
+import org.testcontainers.Testcontainers;
+import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.LogMessageWaitStrategy;
 import org.testcontainers.utility.DockerImageName;
+import org.testcontainers.utility.PathUtils;
 
 import java.io.File;
 import java.io.IOException;
@@ -61,37 +64,37 @@ public class Http2SpecMojo extends AbstractMojo
     /**
      * The port on which the Server will listen.
      */
-    @Parameter(defaultValue = "-1", property="port", required = true)
+    @Parameter(property="h2spec.port", defaultValue = "-1", required = true)
     private int port;
 
     /**
      * Timeout in seconds
      */
-    @Parameter(defaultValue = "2", property="timeout")
+    @Parameter(property="h2spec.timeout", defaultValue = "2")
     private int timeout;
 
     /**
      * Maximum length of HTTP headers
      */
-    @Parameter(defaultValue = "4000", property="maxHeaderLength")
+    @Parameter(property="h2spec.maxHeaderLength", defaultValue = "4000")
     private int maxHeaderLength;
 
     /**
      * A list of cases to exclude during the test. Default is to exclude none.
      */
-    @Parameter(property = "excludeSpecs")
+    @Parameter(property = "h2spec.excludeSpecs")
     private List<String> excludeSpecs;
 
     /**
      * The class which is used to startup the Server. It will pass the port in as argument to the main(...) method.
      */
-    @Parameter(property = "mainClass", required = true)
+    @Parameter(property = "h2spec.mainClass", required = true)
     private String mainClass;
 
     /**
      * The number of milliseconds to max wait for the server to startup. Default is 10000 ms
      */
-    @Parameter(property = "waitTime")
+    @Parameter(property = "h2spec.waitTime")
     private long waitTime = 10000;
 
     /**
@@ -176,6 +179,7 @@ public class Http2SpecMojo extends AbstractMojo
                 // Get some random free port
                 port = findRandomOpenPortOnAllLocalInterfaces();
             }
+            ClassLoader ori = Thread.currentThread().getContextClassLoader();
             runner = new Thread(() ->
             {
                 try
@@ -188,13 +192,16 @@ public class Http2SpecMojo extends AbstractMojo
                 catch (Exception e)
                 {
                     error.set(e);
+                } finally
+                {
+                    Thread.currentThread().setContextClassLoader(ori);
                 }
             });
             runner.setDaemon(true);
             runner.start();
             try
             {
-                // wait for 50 milliseconds to give the server some time to startup
+                // wait for 500 milliseconds to give the server some time to startup
                 Thread.sleep(500);
             }
             catch (InterruptedException ignore)
@@ -285,7 +292,7 @@ public class Http2SpecMojo extends AbstractMojo
                 else
                 {
                     File reportsDirectory = new File(config.outputDirectory, "surefire-reports");
-                    if (!Files.exists( reportsDirectory.toPath()))
+                    if (!Files.exists(reportsDirectory.toPath()))
                     {
                         config.log.debug("Reports directory " + reportsDirectory.getAbsolutePath() + " does not exist, try creating it...");
                         if (reportsDirectory.mkdirs())
@@ -299,15 +306,24 @@ public class Http2SpecMojo extends AbstractMojo
                     }
 
                     File junitFile = new File(reportsDirectory, config.junitFileName);
+                    Testcontainers.exposeHostPorts(port);
+                    //PathUtils
                     GenericContainer h2spec =
-                        new GenericContainer( DockerImageName.parse("summerwind/h2spec:" + h2specVersion))
+                        new GenericContainer("summerwind/h2spec:" + h2specVersion)
+                    //new GenericContainer(DockerImageName.parse("summerwind/h2spec:" + h2specVersion))
+                            .withFileSystemBind(outputDirectory.getAbsolutePath(), outputDirectory.getAbsolutePath(), BindMode.READ_WRITE)
                             .withLogConsumer(new Slf4jLogConsumer(LoggerFactory.getLogger(getClass().getName())));
-                    h2spec.setWaitStrategy( new LogMessageWaitStrategy().withRegEx(".*"));
+                    h2spec.setWaitStrategy(new LogMessageWaitStrategy().withRegEx(".*"));
                     h2spec.setPortBindings(Arrays.asList(Integer.toString(port)));
-                    String command = String.format("-p %d -j %s -o %d --max-header-length %d",
+                    String command = String.format("-h %s -p %d -j %s -o %d --max-header-length %d",
+                                                   "host.testcontainers.internal",
                                                    config.port, junitFile.getAbsolutePath(),
                                                    config.timeout, config.maxHeaderLength);
-                    h2spec.setCommand( command );
+                    if(verbose)
+                    {
+                        command = command + " -v";
+                    }
+                    h2spec.setCommand(command);
                     h2spec.start();
                     allFailures = H2SpecTestSuite.parseReports(config.log, junitFile.getParentFile(),
                                                                 config.excludeSpecs);

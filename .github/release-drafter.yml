@@ -1,4 +1,2 @@
-template: |
-  ## What’s Changed
-
-  $CHANGES
+_extends: .github
+tag-template: h2-spec-maven-plugin-$NEXT_MINOR_VERSION

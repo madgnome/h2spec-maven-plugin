@@ -1,2 +1,2 @@
 _extends: .github
-tag-template: h2-spec-maven-plugin-$NEXT_MINOR_VERSION
+tag-template: h2-spec-maven-plugin-$NEXT_PATCH_VERSION

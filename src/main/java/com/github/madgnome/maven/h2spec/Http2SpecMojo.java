@@ -316,9 +316,12 @@ public class Http2SpecMojo extends AbstractMojo
                 //PathUtils
                 try (GenericContainer h2spec = new GenericContainer( DockerImageName.parse( imageName ) )
                             .withFileSystemBind(outputDirectory.getAbsolutePath(),
-                                                outputDirectory.getAbsolutePath(), BindMode.READ_WRITE)
-                            .withLogConsumer(new Slf4jLogConsumer(LoggerFactory.getLogger(getClass().getName()))))
+                                                outputDirectory.getAbsolutePath(), BindMode.READ_WRITE))
                 {
+                    if(verbose)
+                    {
+                        h2spec.withLogConsumer(new Slf4jLogConsumer(LoggerFactory.getLogger(getClass().getName())));
+                    }
                     h2spec.setWaitStrategy(new LogMessageWaitStrategy().withStartLine( "Finished in " ) );
                     h2spec.setPortBindings( Arrays.asList( Integer.toString( port ) ) );
 

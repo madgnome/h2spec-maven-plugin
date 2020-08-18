@@ -18,4 +18,12 @@
  */
 File buildLog = new File( basedir, 'build.log' )
 assert buildLog.text.contains( 'Container summerwind/h2spec' )
-File surefireFile = new File("target/surefire-reports/TEST-h2specs.xml")
+File surefireFile = new File(basedir, "target/surefire-reports/TEST-h2spec.xml")
+assert surefireFile.exists()
+def report = new XmlSlurper().parse(surefireFile)
+// <testsuite name="3.5. HTTP/2 Connection Preface" >
+def failingNode = report.'*'.find { node ->
+  node.name() == 'testsuite' && node.@name == '3.5. HTTP/2 Connection Preface'
+}
+
+assert failingNode.@errors == '1'

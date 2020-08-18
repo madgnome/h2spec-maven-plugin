@@ -16,23 +16,27 @@ package com.github.madgnome.maven.h2spec;
  * limitations under the License.
  */
 
+import com.github.dockerjava.api.command.LogContainerCmd;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
-import org.apache.maven.plugins.annotations.Component;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.project.MavenProject;
 import org.slf4j.LoggerFactory;
+import org.testcontainers.DockerClientFactory;
 import org.testcontainers.Testcontainers;
 import org.testcontainers.containers.BindMode;
+import org.testcontainers.containers.ContainerLaunchException;
 import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.output.FrameConsumerResultCallback;
+import org.testcontainers.containers.output.OutputFrame;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
-import org.testcontainers.containers.wait.strategy.LogMessageWaitStrategy;
+import org.testcontainers.containers.output.WaitingConsumer;
+import org.testcontainers.containers.wait.strategy.AbstractWaitStrategy;
 import org.testcontainers.utility.DockerImageName;
-import org.testcontainers.utility.PathUtils;
 
 import java.io.File;
 import java.io.IOException;
@@ -51,9 +55,14 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Predicate;
 
 import static com.github.madgnome.maven.h2spec.H2SpecTestSuite.DEFAULT_VERSION;
+import static org.testcontainers.containers.output.OutputFrame.OutputType.STDERR;
+import static org.testcontainers.containers.output.OutputFrame.OutputType.STDOUT;
 
 
 @Mojo(name = "h2spec", defaultPhase = LifecyclePhase.INTEGRATION_TEST,
@@ -114,15 +123,12 @@ public class Http2SpecMojo extends AbstractMojo
     private boolean verbose;
 
     @Parameter(property = "h2spec.version", defaultValue = DEFAULT_VERSION )
-    private String h2specVersion = DEFAULT_VERSION;
+    private String h2specVersion;
 
-    @Parameter(property = "h2spec.useBinaries", defaultValue = "false" )
-    /**
-     * using h2spec binaries or docker image default is to use docker image
-     */
-    private boolean useBinaries;
+    @Parameter(property = "h2spec.containerName", defaultValue = "summerwind/h2spec")
+    private String h2specContainerName;
 
-    @Component
+    @Parameter(defaultValue = "${project}", readonly = true)
     private MavenProject project;
 
     @SuppressWarnings("unchecked")
@@ -272,63 +278,57 @@ public class Http2SpecMojo extends AbstractMojo
                 }
 
                 File outputDirectory = new File(project.getBuild().getDirectory());
-                H2SpecTestSuite.Config config = new H2SpecTestSuite.Config();
-                config.log = getLog();
-                config.outputDirectory = outputDirectory;
-                config.port = port;
-                config.timeout = timeout;
-                config.excludeSpecs = new HashSet<>(excludeSpecs);
-                config.junitFileName = this.junitFileName;
-                config.verbose = verbose;
-                config.version = h2specVersion;
+
                 List<Failure> allFailures;
                 List<Failure> nonIgnoredFailures = new ArrayList<>();
                 List<Failure> ignoredFailures = new ArrayList<>();
 
-                if (useBinaries)
+                File reportsDirectory = new File(outputDirectory, "surefire-reports");
+                if (!Files.exists(reportsDirectory.toPath()))
                 {
-                    allFailures = H2SpecTestSuite.runH2Spec( config );
+                    getLog().debug("Reports directory " + reportsDirectory.getAbsolutePath() + " does not exist, try creating it...");
+                    if (reportsDirectory.mkdirs())
+                    {
+                        getLog().debug("Reports directory " + reportsDirectory.getAbsolutePath() + " created.");
+                    }
+                    else
+                    {
+                        getLog().debug("Failed to create report directory");
+                    }
                 }
-                else
-                {
-                    File reportsDirectory = new File(config.outputDirectory, "surefire-reports");
-                    if (!Files.exists(reportsDirectory.toPath()))
-                    {
-                        config.log.debug("Reports directory " + reportsDirectory.getAbsolutePath() + " does not exist, try creating it...");
-                        if (reportsDirectory.mkdirs())
-                        {
-                            config.log.debug("Reports directory " + reportsDirectory.getAbsolutePath() + " created.");
-                        }
-                        else
-                        {
-                            config.log.debug("Failed to create report directory");
-                        }
-                    }
 
-                    File junitFile = new File(reportsDirectory, config.junitFileName);
-                    Testcontainers.exposeHostPorts(port);
-                    //PathUtils
-                    GenericContainer h2spec =
-                        new GenericContainer("summerwind/h2spec:" + h2specVersion)
-                    //new GenericContainer(DockerImageName.parse("summerwind/h2spec:" + h2specVersion))
-                            .withFileSystemBind(outputDirectory.getAbsolutePath(), outputDirectory.getAbsolutePath(), BindMode.READ_WRITE)
-                            .withLogConsumer(new Slf4jLogConsumer(LoggerFactory.getLogger(getClass().getName())));
-                    h2spec.setWaitStrategy(new LogMessageWaitStrategy().withRegEx(".*"));
-                    h2spec.setPortBindings(Arrays.asList(Integer.toString(port)));
-                    String command = String.format("-h %s -p %d -j %s -o %d --max-header-length %d",
-                                                   "host.testcontainers.internal",
-                                                   config.port, junitFile.getAbsolutePath(),
-                                                   config.timeout, config.maxHeaderLength);
-                    if(verbose)
-                    {
-                        command = command + " -v";
-                    }
-                    h2spec.setCommand(command);
+                File junitFile = new File(reportsDirectory, junitFileName);
+                String imageName = h2specContainerName + ":" + h2specVersion;
+                String command = String.format( "-h %s -p %d -j %s -o %d --max-header-length %d",
+                                                "host.testcontainers.internal",
+                                                port,
+                                                junitFile.getAbsolutePath(),
+                                                timeout,
+                                                maxHeaderLength );
+                if ( verbose )
+                {
+                    command = command + " -v";
+                }
+
+                getLog().info( "running image: " + imageName + " with command: " + command);
+
+                Testcontainers.exposeHostPorts(port);
+                //PathUtils
+                try (GenericContainer h2spec = new GenericContainer( DockerImageName.parse( imageName ) )
+                            .withFileSystemBind(outputDirectory.getAbsolutePath(),
+                                                outputDirectory.getAbsolutePath(), BindMode.READ_WRITE)
+                            .withLogConsumer(new Slf4jLogConsumer(LoggerFactory.getLogger(getClass().getName()))))
+                {
+                    h2spec.setWaitStrategy(new LogMessageWaitStrategy().withStartLine( "Finished in " ) );
+                    h2spec.setPortBindings( Arrays.asList( Integer.toString( port ) ) );
+
+
+                    h2spec.withCommand( command );
                     h2spec.start();
-                    allFailures = H2SpecTestSuite.parseReports(config.log, junitFile.getParentFile(),
-                                                                config.excludeSpecs);
-
+                    allFailures =
+                        H2SpecTestSuite.parseReports( getLog(), junitFile.getParentFile(), new HashSet<>(excludeSpecs) );
                 }
+
 
                 allFailures.forEach(failure ->
                 {
@@ -356,7 +356,7 @@ public class Http2SpecMojo extends AbstractMojo
                     getLog().info("All test cases passed. " + ignoredFailures.size() + " test cases ignored.");
                 }
             }
-            catch (IOException e)
+            catch (Exception e)
             {
                 throw new MojoExecutionException(e.getMessage(), e);
             }
@@ -396,6 +396,59 @@ public class Http2SpecMojo extends AbstractMojo
                     System.err.println("Can't close server socket.");
                 }
             }
+        }
+    }
+
+    static class LogMessageWaitStrategy extends AbstractWaitStrategy
+    {
+
+        private String startLine;
+
+        private int times = 1;
+
+        @Override
+        protected void waitUntilReady() {
+            WaitingConsumer waitingConsumer = new WaitingConsumer();
+
+            LogContainerCmd cmd = DockerClientFactory.instance().client().logContainerCmd( waitStrategyTarget.getContainerId())
+                .withFollowStream(true)
+                .withSince(0)
+                .withStdOut(true)
+                .withStdErr(true);
+
+            try
+            {
+                try (FrameConsumerResultCallback callback = new FrameConsumerResultCallback()) {
+                    callback.addConsumer(STDOUT, waitingConsumer);
+                    callback.addConsumer(STDERR, waitingConsumer);
+
+                    cmd.exec(callback);
+
+                    Predicate<OutputFrame> waitPredicate = outputFrame -> {
+                        String line = outputFrame.getUtf8String();
+                        return line.startsWith( startLine );
+                    };
+                    try {
+                        waitingConsumer.waitUntil( waitPredicate, startupTimeout.getSeconds(), TimeUnit.SECONDS, times);
+                    } catch ( TimeoutException e) {
+                        throw new ContainerLaunchException( "Timed out waiting for log output matching '" + startLine + "'");
+                    }
+                }
+            }
+            catch ( IOException e )
+            {
+                e.printStackTrace();
+            }
+        }
+
+        public LogMessageWaitStrategy withStartLine( String startLine) {
+            this.startLine = startLine;
+            return this;
+        }
+
+        public LogMessageWaitStrategy withStartLine( int times) {
+            this.times = times;
+            return this;
         }
     }
 }

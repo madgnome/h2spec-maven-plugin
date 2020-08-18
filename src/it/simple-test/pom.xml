@@ -7,7 +7,7 @@
     <dependency>
       <groupId>org.eclipse.jetty.http2</groupId>
       <artifactId>http2-server</artifactId>
-      <version>9.4.31.v20200723</version>
+      <version>@jetty.version@</version>
     </dependency>
   </dependencies>
   <build>
@@ -30,8 +30,12 @@
         <artifactId>h2spec-maven-plugin</artifactId>
         <version>@project.version@</version>
         <configuration>
+          <h2specVersion>@h2specVersion@</h2specVersion>
+          <h2specContainerName>@h2specContainerName@</h2specContainerName>
           <mainClass>org.eclipse.jetty.http2.server.H2SpecServer</mainClass>
-          <skip>${skipTests}</skip>
+          <excludeSpecs>
+            <excludeSpec>3.5.2 HTTP/2 Connection Preface</excludeSpec>
+          </excludeSpecs>
         </configuration>
         <executions>
           <execution>

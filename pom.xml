@@ -4,7 +4,7 @@
   <groupId>org.mortbay.jetty</groupId>
   <artifactId>h2spec-maven-plugin</artifactId>
   <packaging>maven-plugin</packaging>
-  <version>3.0.0-SNAPSHOT</version>
+  <version>1.0.0-SNAPSHOT</version>
 
   <name>h2spec-maven-plugin Maven Mojo</name>
   <url>https://github.com/jetty-project/h2spec-maven-plugin</url>

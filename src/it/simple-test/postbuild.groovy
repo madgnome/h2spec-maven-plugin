@@ -27,5 +27,5 @@ def failingNode = report.'*'.find { node ->
 }
 
 assert failingNode.@errors == '1'
-assert failingNode.@package == 'http2/3.5'
 assert failingNode.@name == '3.5. HTTP/2 Connection Preface'
+

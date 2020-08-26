@@ -145,8 +145,8 @@ public class Http2SpecMojo extends AbstractMojo
     @Parameter(defaultValue = "${project}", readonly = true)
     private MavenProject project;
 
-    @Parameter(property = "h2spec.junitClassName", defaultValue = "h2spec")
-    private String junitClassName;
+    @Parameter(property = "h2spec.junitPackage", defaultValue = "h2spec")
+    private String junitPackage;
 
     @SuppressWarnings("unchecked")
     private ClassLoader getClassLoader() throws MojoExecutionException
@@ -389,13 +389,18 @@ public class Http2SpecMojo extends AbstractMojo
             dom = Xpp3DomBuilder.build( reader);
             Arrays.stream(dom.getChildren()).forEach(
                 testsuite ->
+                {
+                    testsuite.setAttribute( "package", "" );
                     Arrays.stream( testsuite.getChildren() )
                         .forEach( testcase -> {
-                            testcase.setAttribute( "name", testcase.getAttribute("package") );
-                            testcase.setAttribute( "classname",
-                                                   StringUtils.replace( testcase.getAttribute( "classname"), ' ', '.' ) );
-                        })
-
+                            String className = testcase.getAttribute("classname");
+                            testcase.setAttribute( "classname", junitPackage + "."
+                                + StringUtils.replace(testcase.getAttribute("package"), '/', '.' ));
+                            testcase.setAttribute( "package", "" );
+                            testcase.setAttribute( "name",
+                                                   StringUtils.replace( className, ' ', '_' ));
+                        });
+                }
             );
         }
         try (Writer writer = Files.newBufferedWriter( junitFile.toPath() ))

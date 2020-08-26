@@ -25,6 +25,11 @@ import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.project.MavenProject;
+import org.codehaus.plexus.util.StringUtils;
+import org.codehaus.plexus.util.xml.Xpp3Dom;
+import org.codehaus.plexus.util.xml.Xpp3DomBuilder;
+import org.codehaus.plexus.util.xml.Xpp3DomWriter;
+import org.codehaus.plexus.util.xml.pull.XmlPullParserException;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.Testcontainers;
@@ -37,9 +42,12 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.output.WaitingConsumer;
 import org.testcontainers.containers.wait.strategy.AbstractWaitStrategy;
 import org.testcontainers.utility.DockerImageName;
+import org.testcontainers.utility.TestcontainersConfiguration;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.Reader;
+import java.io.Writer;
 import java.lang.reflect.Method;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -69,6 +77,10 @@ import static org.testcontainers.containers.output.OutputFrame.OutputType.STDOUT
         requiresDependencyResolution = ResolutionScope.TEST, threadSafe = true)
 public class Http2SpecMojo extends AbstractMojo
 {
+    static
+    {
+        TestcontainersConfiguration.getInstance().getProperties().setProperty( "transport.type","httpclient5" );
+    }
 
     /**
      * The port on which the Server will listen.
@@ -131,6 +143,9 @@ public class Http2SpecMojo extends AbstractMojo
     @Parameter(defaultValue = "${project}", readonly = true)
     private MavenProject project;
 
+    @Parameter(property = "h2spec.junitClassName", defaultValue = "h2spec")
+    private String junitClassName;
+
     @SuppressWarnings("unchecked")
     private ClassLoader getClassLoader() throws MojoExecutionException
     {
@@ -166,7 +181,7 @@ public class Http2SpecMojo extends AbstractMojo
             return;
         }
 
-        final AtomicReference<Exception> error = new AtomicReference<>();
+        final AtomicReference<Throwable> error = new AtomicReference<>();
         Thread runner = null;
         try
         {
@@ -195,7 +210,7 @@ public class Http2SpecMojo extends AbstractMojo
                     Method main = clazz.getMethod("main", String[].class);
                     main.invoke(null, (Object) new String[] {String.valueOf(port) });
                 }
-                catch (Exception e)
+                catch (Throwable e)
                 {
                     error.set(e);
                 } finally
@@ -229,8 +244,7 @@ public class Http2SpecMojo extends AbstractMojo
                 {
                     throw new MojoExecutionException("Unable to start server", cause);
                 }
-                Socket socket = new Socket();
-                try
+                try (Socket socket = new Socket())
                 {
                     socket.connect(new InetSocketAddress(host, port));
                     break;
@@ -245,17 +259,6 @@ public class Http2SpecMojo extends AbstractMojo
                     {
                         // restore interrupt state
                         Thread.currentThread().interrupt();
-                    }
-                }
-                finally
-                {
-                    try
-                    {
-                        socket.close();
-                    }
-                    catch (IOException e)
-                    {
-                        // ignore
                     }
                 }
                 if (i == 9)
@@ -298,11 +301,12 @@ public class Http2SpecMojo extends AbstractMojo
                 }
 
                 File junitFile = new File(reportsDirectory, junitFileName);
+                junitFile.createNewFile();
                 String imageName = h2specContainerName + ":" + h2specVersion;
                 String command = String.format( "-h %s -p %d -j %s -o %d --max-header-length %d",
                                                 "host.testcontainers.internal",
                                                 port,
-                                                junitFile.getAbsolutePath(),
+                                                "./junit.xml", // junitFile.getAbsolutePath(),
                                                 timeout,
                                                 maxHeaderLength );
                 if ( verbose )
@@ -313,10 +317,8 @@ public class Http2SpecMojo extends AbstractMojo
                 getLog().info( "running image: " + imageName + " with command: " + command);
 
                 Testcontainers.exposeHostPorts(port);
-                //PathUtils
-                try (GenericContainer h2spec = new GenericContainer( DockerImageName.parse( imageName ) )
-                            .withFileSystemBind(outputDirectory.getAbsolutePath(),
-                                                outputDirectory.getAbsolutePath(), BindMode.READ_WRITE))
+
+                try (GenericContainer h2spec = new GenericContainer( DockerImageName.parse( imageName ) ) )
                 {
                     if(verbose)
                     {
@@ -324,14 +326,14 @@ public class Http2SpecMojo extends AbstractMojo
                     }
                     h2spec.setWaitStrategy(new LogMessageWaitStrategy().withStartLine( "Finished in " ) );
                     h2spec.setPortBindings( Arrays.asList( Integer.toString( port ) ) );
-
-
                     h2spec.withCommand( command );
                     h2spec.start();
-                    allFailures =
-                        H2SpecTestSuite.parseReports( getLog(), junitFile.getParentFile(), new HashSet<>(excludeSpecs) );
+                    h2spec.copyFileFromContainer("./junit.xml", junitFile.getAbsolutePath());
                 }
-
+                // after container stop to be sure file flushed
+                cleanupJunitReportFile(junitFile);
+                allFailures =
+                    H2SpecTestSuite.parseReports( getLog(), junitFile.getParentFile(), new HashSet<>(excludeSpecs) );
 
                 allFailures.forEach(failure ->
                 {
@@ -374,31 +376,42 @@ public class Http2SpecMojo extends AbstractMojo
         }
     }
 
-    private Integer findRandomOpenPortOnAllLocalInterfaces()
+    private void cleanupJunitReportFile(File junitFile)
+        throws IOException, XmlPullParserException
     {
-        ServerSocket socket = null;
-        try
+        Xpp3Dom dom;
+        try(Reader reader = Files.newBufferedReader( junitFile.toPath() ))
         {
-            socket = new ServerSocket(0);
+            dom = Xpp3DomBuilder.build( reader);
+            for (Xpp3Dom testsuite : dom.getChildren())
+            {
+                Float time = (float) 0;
+                for (Xpp3Dom testcase : testsuite.getChildren())
+                {
+                    time += Float.parseFloat(testcase.getAttribute( "time" ));
+                    testcase.setAttribute( "name", testcase.getAttribute("package") );
+                    testcase.setAttribute( "classname",
+                                           StringUtils.replace( testcase.getAttribute( "classname"), ' ', '.' ) );
+                }
+                testsuite.setAttribute( "time", Float.toString( time ) );
+            }
+        }
+        try (Writer writer = Files.newBufferedWriter( junitFile.toPath() ))
+        {
+            Xpp3DomWriter.write(writer, dom);
+        }
+    }
+
+    private int findRandomOpenPortOnAllLocalInterfaces()
+    {
+
+        try(ServerSocket socket = new ServerSocket(0))
+        {
             return socket.getLocalPort();
         }
         catch (IOException e)
         {
             throw new RuntimeException("Can't find an open socket", e);
-        }
-        finally
-        {
-            if (socket != null)
-            {
-                try
-                {
-                    socket.close();
-                }
-                catch (IOException e)
-                {
-                    System.err.println("Can't close server socket.");
-                }
-            }
         }
     }
 

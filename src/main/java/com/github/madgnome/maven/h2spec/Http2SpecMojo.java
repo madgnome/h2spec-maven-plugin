@@ -58,6 +58,7 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.net.UnknownHostException;
 import java.nio.file.Files;
+import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -67,6 +68,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
+import java.util.stream.DoubleStream;
 
 import static com.github.madgnome.maven.h2spec.H2SpecTestSuite.DEFAULT_VERSION;
 import static org.testcontainers.containers.output.OutputFrame.OutputType.STDERR;
@@ -330,8 +332,7 @@ public class Http2SpecMojo extends AbstractMojo
                     h2spec.start();
                     h2spec.copyFileFromContainer("./junit.xml", junitFile.getAbsolutePath());
                 }
-                // after container stop to be sure file flushed
-                cleanupJunitReportFile(junitFile);
+                cleanupJunitReportFileOnlyTime(junitFile);
                 allFailures =
                     H2SpecTestSuite.parseReports( getLog(), junitFile.getParentFile(), new HashSet<>(excludeSpecs) );
 
@@ -360,6 +361,9 @@ public class Http2SpecMojo extends AbstractMojo
                 {
                     getLog().info("All test cases passed. " + ignoredFailures.size() + " test cases ignored.");
                 }
+                // after container stop to be sure file flushed
+                // cleanup so it's readable by Jenkins
+                cleanupJunitReportFile(junitFile);
             }
             catch (Exception e)
             {
@@ -383,18 +387,40 @@ public class Http2SpecMojo extends AbstractMojo
         try(Reader reader = Files.newBufferedReader( junitFile.toPath() ))
         {
             dom = Xpp3DomBuilder.build( reader);
-            for (Xpp3Dom testsuite : dom.getChildren())
-            {
-                Float time = (float) 0;
-                for (Xpp3Dom testcase : testsuite.getChildren())
+            Arrays.stream(dom.getChildren()).forEach(
+                testsuite ->
+                    Arrays.stream( testsuite.getChildren() )
+                        .forEach( testcase -> {
+                            testcase.setAttribute( "name", testcase.getAttribute("package") );
+                            testcase.setAttribute( "classname",
+                                                   StringUtils.replace( testcase.getAttribute( "classname"), ' ', '.' ) );
+                        })
+
+            );
+        }
+        try (Writer writer = Files.newBufferedWriter( junitFile.toPath() ))
+        {
+            Xpp3DomWriter.write(writer, dom);
+        }
+    }
+
+    private void cleanupJunitReportFileOnlyTime(File junitFile)
+        throws IOException, XmlPullParserException
+    {
+        DecimalFormat df = new DecimalFormat( "#.#####");
+        Xpp3Dom dom;
+        try(Reader reader = Files.newBufferedReader( junitFile.toPath() ))
+        {
+            dom = Xpp3DomBuilder.build( reader);
+            Arrays.stream(dom.getChildren()).forEach(
+                testsuite ->
                 {
-                    time += Float.parseFloat(testcase.getAttribute( "time" ));
-                    testcase.setAttribute( "name", testcase.getAttribute("package") );
-                    testcase.setAttribute( "classname",
-                                           StringUtils.replace( testcase.getAttribute( "classname"), ' ', '.' ) );
+                    final float[] time = { (float) 0 };
+                    Arrays.stream( testsuite.getChildren() )
+                        .forEach( testcase -> time[0] += Float.parseFloat( testcase.getAttribute( "time" ) ));
+                    testsuite.setAttribute( "time", df.format( time[0] ) );// Float.toString( time[0] )
                 }
-                testsuite.setAttribute( "time", Float.toString( time ) );
-            }
+            );
         }
         try (Writer writer = Files.newBufferedWriter( junitFile.toPath() ))
         {

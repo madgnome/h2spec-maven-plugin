@@ -30,6 +30,20 @@ pipeline {
             }
           }
         }
+        stage( "Build / Test - JDK11" ) {
+          agent { node { label 'linux' } }
+          options { timeout( time: 120, unit: 'MINUTES' ) }
+          steps {
+            mavenBuild( "jdk11", "clean install javadoc:jar" )
+          }
+        }
+        stage( "Build / Test - JDK14" ) {
+          agent { node { label 'linux' } }
+          options { timeout( time: 120, unit: 'MINUTES' ) }
+          steps {
+            mavenBuild( "jdk14", "clean install javadoc:jar" )
+          }
+        }
       }
     }
   }

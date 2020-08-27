@@ -34,6 +34,7 @@
           <h2specContainerName>@h2specContainerName@</h2specContainerName>
           <mainClass>org.eclipse.jetty.http2.server.H2SpecServer</mainClass>
           <verbose>true</verbose>
+          <junitPackage>org.eclipse.jetty.h2spec</junitPackage>
 <!--          <testFailureIgnore>true</testFailureIgnore>-->
           <excludeSpecs>
             <excludeSpec>3.5 - Sends invalid connection preface</excludeSpec>

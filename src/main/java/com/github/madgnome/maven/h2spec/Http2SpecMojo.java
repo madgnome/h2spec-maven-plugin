@@ -391,11 +391,12 @@ public class Http2SpecMojo extends AbstractMojo
                 testsuite ->
                 {
                     testsuite.setAttribute( "package", "" );
+                    testsuite.setAttribute( "id", "" );
                     Arrays.stream( testsuite.getChildren() )
                         .forEach( testcase -> {
                             String className = testcase.getAttribute("classname");
                             testcase.setAttribute( "classname", junitPackage + "."
-                                + StringUtils.replace(testcase.getAttribute("package"), '/', '.' ));
+                                + StringUtils.replace(testcase.getAttribute("package"), '/', '_' ));
                             testcase.setAttribute( "package", "" );
                             testcase.setAttribute( "name",
                                                    StringUtils.replace( className, ' ', '_' ));

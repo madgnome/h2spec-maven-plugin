@@ -33,7 +33,6 @@ import org.codehaus.plexus.util.xml.pull.XmlPullParserException;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.Testcontainers;
-import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.ContainerLaunchException;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.FrameConsumerResultCallback;
@@ -68,7 +67,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
-import java.util.stream.DoubleStream;
 
 import static com.github.madgnome.maven.h2spec.H2SpecTestSuite.DEFAULT_VERSION;
 import static org.testcontainers.containers.output.OutputFrame.OutputType.STDERR;
@@ -147,6 +145,9 @@ public class Http2SpecMojo extends AbstractMojo
 
     @Parameter(property = "h2spec.junitPackage", defaultValue = "h2spec")
     private String junitPackage;
+
+    @Parameter(property = "h2spec.reportsDirectory", defaultValue = "${project.build.directory}/surefire-reports")
+    private File reportsDirectory;
 
     @SuppressWarnings("unchecked")
     private ClassLoader getClassLoader() throws MojoExecutionException
@@ -282,13 +283,10 @@ public class Http2SpecMojo extends AbstractMojo
                     getLog().info(excludeSpec);
                 }
 
-                File outputDirectory = new File(project.getBuild().getDirectory());
-
                 List<Failure> allFailures;
                 List<Failure> nonIgnoredFailures = new ArrayList<>();
                 List<Failure> ignoredFailures = new ArrayList<>();
 
-                File reportsDirectory = new File(outputDirectory, "surefire-reports");
                 if (!Files.exists(reportsDirectory.toPath()))
                 {
                     getLog().debug("Reports directory " + reportsDirectory.getAbsolutePath() + " does not exist, try creating it...");

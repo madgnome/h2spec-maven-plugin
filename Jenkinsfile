@@ -23,7 +23,6 @@ pipeline {
                    classPattern: '**/target/classes',
                    sourcePattern: '**/src/main/java'
             warnings consoleParsers: [[parserName: 'Maven'], [parserName: 'Java']]
-            junit testResults: '*/target/surefire-reports/*.xml,**/target/invoker-reports/TEST*.xml'
             script {
               if (env.BRANCH_NAME == 'master') {
                 mavenBuild( "jdk8", "deploy" )
@@ -36,7 +35,6 @@ pipeline {
           options { timeout( time: 120, unit: 'MINUTES' ) }
           steps {
             mavenBuild( "jdk11", "clean install javadoc:jar" )
-            junit testResults: '*/target/surefire-reports/*.xml,**/target/invoker-reports/TEST*.xml'
           }
         }
         stage( "Build / Test - JDK14" ) {
@@ -44,7 +42,6 @@ pipeline {
           options { timeout( time: 120, unit: 'MINUTES' ) }
           steps {
             mavenBuild( "jdk14", "clean install javadoc:jar" )
-            junit testResults: '*/target/surefire-reports/*.xml,**/target/invoker-reports/TEST*.xml'
           }
         }
       }
@@ -72,7 +69,7 @@ def mavenBuild(jdk, cmdline) {
           jdk: "$jdk",
           publisherStrategy: 'EXPLICIT',
           globalMavenSettingsConfig: settingsName,
-          options: [junitPublisher(disabled: true)],
+          options: [junitPublisher(disabled: false)],
           mavenOpts: mavenOpts,
           mavenLocalRepo: localRepo) {
     // Some common Maven command line + provided command line

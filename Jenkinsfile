@@ -23,7 +23,7 @@ pipeline {
                    classPattern: '**/target/classes',
                    sourcePattern: '**/src/main/java'
             warnings consoleParsers: [[parserName: 'Maven'], [parserName: 'Java']]
-            junit testResults: '**/target/surefire-reports/*.xml,**/target/invoker-reports/TEST*.xml'
+            junit testResults: '*/target/surefire-reports/*.xml,**/target/invoker-reports/TEST*.xml'
             script {
               if (env.BRANCH_NAME == 'master') {
                 mavenBuild( "jdk8", "deploy" )
@@ -36,7 +36,7 @@ pipeline {
           options { timeout( time: 120, unit: 'MINUTES' ) }
           steps {
             mavenBuild( "jdk11", "clean install javadoc:jar" )
-            junit testResults: '**/target/surefire-reports/*.xml,**/target/invoker-reports/TEST*.xml'
+            junit testResults: '*/target/surefire-reports/*.xml,**/target/invoker-reports/TEST*.xml'
           }
         }
         stage( "Build / Test - JDK14" ) {
@@ -44,7 +44,7 @@ pipeline {
           options { timeout( time: 120, unit: 'MINUTES' ) }
           steps {
             mavenBuild( "jdk14", "clean install javadoc:jar" )
-            junit testResults: '**/target/surefire-reports/*.xml,**/target/invoker-reports/TEST*.xml'
+            junit testResults: '*/target/surefire-reports/*.xml,**/target/invoker-reports/TEST*.xml'
           }
         }
       }

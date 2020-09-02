@@ -26,6 +26,7 @@ def failingNode = report.'*'.find { node ->
   node.name() == 'testsuite' && node.@name == '3.5. HTTP/2 Connection Preface'
 }
 
-assert failingNode.@errors == '1'
+assert failingNode.@errors == '0'
+assert failingNode.@skipped == '1'
 assert failingNode.@name == '3.5. HTTP/2 Connection Preface'
 

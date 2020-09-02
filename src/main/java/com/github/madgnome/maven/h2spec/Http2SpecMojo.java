@@ -57,6 +57,7 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.net.UnknownHostException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -358,6 +359,8 @@ public class Http2SpecMojo extends AbstractMojo
                 else
                 {
                     getLog().info("All test cases passed. " + ignoredFailures.size() + " test cases ignored.");
+                    // mark fail those ignored/failed test as skipped
+                    markedFailedTestAsSkipped(junitFile.toPath());
                 }
                 // after container stop to be sure file flushed
                 // cleanup so it's readable by Jenkins
@@ -375,6 +378,41 @@ public class Http2SpecMojo extends AbstractMojo
             {
                 runner.interrupt();
             }
+        }
+    }
+
+    protected void markedFailedTestAsSkipped( Path junitFile)
+        throws IOException, XmlPullParserException
+    {
+        if(this.excludeSpecs == null || this.excludeSpecs.isEmpty())
+        {
+            return;
+        }
+        Xpp3Dom dom;
+        try(Reader reader = Files.newBufferedReader( junitFile ))
+        {
+            dom = Xpp3DomBuilder.build( reader);
+            Arrays.stream(dom.getChildren()).forEach(
+                testsuite ->
+                {
+                    if (!"0".equals( testsuite.getAttribute( "errors" ) ))
+                    {
+                        Arrays.stream( testsuite.getChildren() ).forEach( testcase -> {
+                            if ( testcase.getChild( "error" ) != null )
+                            {
+                                int skipped = Integer.valueOf( testsuite.getAttribute( "skipped" ) );
+                                int errors = Integer.valueOf( testsuite.getAttribute( "errors" ) );
+                                testsuite.setAttribute( "skipped", Integer.toString( ++skipped ) );
+                                testsuite.setAttribute( "errors", Integer.toString( --errors ) );
+                            }
+                        } );
+                    }
+                }
+            );
+        }
+        try (Writer writer = Files.newBufferedWriter( junitFile ))
+        {
+            Xpp3DomWriter.write(writer, dom);
         }
     }
 
@@ -496,5 +534,11 @@ public class Http2SpecMojo extends AbstractMojo
             this.times = times;
             return this;
         }
+    }
+
+
+    public void setExcludeSpecs( List<String> excludeSpecs )
+    {
+        this.excludeSpecs = excludeSpecs;
     }
 }

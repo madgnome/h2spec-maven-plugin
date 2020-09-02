@@ -61,7 +61,6 @@ public class H2SpecTestSuite
                     }
                 }
             }
-
         }
         catch (MavenReportException e)
         {

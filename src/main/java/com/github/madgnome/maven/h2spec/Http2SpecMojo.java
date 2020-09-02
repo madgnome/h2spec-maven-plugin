@@ -404,6 +404,7 @@ public class Http2SpecMojo extends AbstractMojo
                                 int errors = Integer.valueOf( testsuite.getAttribute( "errors" ) );
                                 testsuite.setAttribute( "skipped", Integer.toString( ++skipped ) );
                                 testsuite.setAttribute( "errors", Integer.toString( --errors ) );
+                                testcase.removeChild( 0 );
                             }
                         } );
                     }

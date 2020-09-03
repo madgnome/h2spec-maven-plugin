@@ -404,6 +404,9 @@ public class Http2SpecMojo extends AbstractMojo
                                 int errors = Integer.valueOf( testsuite.getAttribute( "errors" ) );
                                 testsuite.setAttribute( "skipped", Integer.toString( ++skipped ) );
                                 testsuite.setAttribute( "errors", Integer.toString( --errors ) );
+                                Xpp3Dom skippedDom = new Xpp3Dom( "skipped" );
+                                skippedDom.setValue( testcase.getChild( 0 ).getValue() );
+                                testcase.addChild( skippedDom );
                                 testcase.removeChild( 0 );
                             }
                         } );
@@ -433,7 +436,7 @@ public class Http2SpecMojo extends AbstractMojo
                         .forEach( testcase -> {
                             String className = testcase.getAttribute("classname");
                             testcase.setAttribute( "classname", junitPackage + "."
-                                + StringUtils.replace(testcase.getAttribute("package"), '/', '_' ));
+                                + StringUtils.replace(testsuite.getAttribute("name"), ' ', '_' ));
                             testcase.setAttribute( "package", "" );
                             testcase.setAttribute( "name",
                                                    StringUtils.replace( className, ' ', '_' ));

@@ -353,6 +353,7 @@ public class Http2SpecMojo extends AbstractMojo
                     nonIgnoredFailures.forEach(failure -> sb.append("\t").append(failure.toString()).append("\n\n"));
                     if (!testFailureIgnore)
                     {
+                        cleanupJunitReportFile(junitFile);
                         throw new MojoFailureException(sb.toString());
                     }
                 }

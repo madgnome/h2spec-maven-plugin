@@ -1,7 +1,7 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.mortbay.jetty.its</groupId>
-  <artifactId>h2spec-maven-plugin-its-simple</artifactId>
+  <artifactId>h2spec-maven-plugin-its-simple-with-failure</artifactId>
   <version>1.0.0-SNAPSHOT</version>
   <dependencies>
     <dependency>
@@ -36,10 +36,6 @@
           <verbose>true</verbose>
           <reportsDirectory>${project.build.directory}/h2spec-reports</reportsDirectory>
           <junitPackage>org.eclipse.jetty.h2spec</junitPackage>
-<!--          <testFailureIgnore>true</testFailureIgnore>-->
-          <excludeSpecs>
-            <excludeSpec>3.5 - Sends invalid connection preface</excludeSpec>
-          </excludeSpecs>
         </configuration>
         <executions>
           <execution>

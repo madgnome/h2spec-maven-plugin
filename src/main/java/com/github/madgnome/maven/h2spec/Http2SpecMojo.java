@@ -307,7 +307,7 @@ public class Http2SpecMojo extends AbstractMojo
                 String command = String.format( "-h %s -p %d -j %s -o %d --max-header-length %d",
                                                 "host.testcontainers.internal",
                                                 port,
-                                                "./junit.xml", // junitFile.getAbsolutePath(),
+                                                "/tmp/junit.xml",
                                                 timeout,
                                                 maxHeaderLength );
                 if ( verbose )
@@ -329,7 +329,7 @@ public class Http2SpecMojo extends AbstractMojo
                     h2spec.setPortBindings( Arrays.asList( Integer.toString( port ) ) );
                     h2spec.withCommand( command );
                     h2spec.start();
-                    h2spec.copyFileFromContainer("./junit.xml", junitFile.getAbsolutePath());
+                    h2spec.copyFileFromContainer("/tmp/junit.xml", junitFile.getAbsolutePath());
                 }
                 cleanupJunitReportFileOnlyTime(junitFile);
                 allFailures =
@@ -392,7 +392,7 @@ public class Http2SpecMojo extends AbstractMojo
         Xpp3Dom dom;
         try(Reader reader = Files.newBufferedReader( junitFile ))
         {
-            dom = Xpp3DomBuilder.build( reader);
+            dom = Xpp3DomBuilder.build(reader);
             Arrays.stream(dom.getChildren()).forEach(
                 testsuite ->
                 {

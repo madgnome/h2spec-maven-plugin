@@ -150,6 +150,9 @@ public class Http2SpecMojo extends AbstractMojo
     @Parameter(property = "h2spec.reportsDirectory", defaultValue = "${project.build.directory}/surefire-reports")
     private File reportsDirectory;
 
+    @Parameter(property = "h2spec.skipNoDockerAvailable", defaultValue = "false")
+    private boolean skipNoDockerAvailable;
+
     @SuppressWarnings("unchecked")
     private ClassLoader getClassLoader() throws MojoExecutionException
     {
@@ -182,6 +185,16 @@ public class Http2SpecMojo extends AbstractMojo
         if (skip)
         {
             getLog().info("Skip execution of h2spec-maven-plugin");
+            return;
+        }
+
+        boolean dockerAvailable = DockerClientFactory.instance().isDockerAvailable();
+
+        if (!dockerAvailable && skipNoDockerAvailable){
+            getLog().info( "---------------------------------------" );
+            getLog().info( "  SKIP H2SPEC AS DOCKER NOT AVAILABLE  " );
+            getLog().info( "    DO NOT BE GRUMPY AND INSTALL IT    " );
+            getLog().info( "---------------------------------------" );
             return;
         }
 
